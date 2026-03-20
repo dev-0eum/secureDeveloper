@@ -1,0 +1,4 @@
+go get -u github.com/gin-gonic/gin
+go get modernc.org/sqlite
+go get github.com/sirupsen/logrus
+go get gopkg.in/natefinch/lumberjack.v2

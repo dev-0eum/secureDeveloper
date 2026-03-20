@@ -93,3 +93,18 @@ ex)
 > xxx 한 것을 막기위해 xxx 를 적용해 방어
 
 > xxx 한 것을 고려해 구성함
+
+
+1. 윈도우 방화벽 이슈로 인한 실행 포트 변경
+> 기존 8080 세팅에서 8081로 변경
+
+2. 라이브러리 설치 및 활용
+> go get -u github.com/gin-gonic/gin
+> go get modernc.org/sqlite
+> go get github.com/sirupsen/logrus
+> go get gopkg.in/natefinch/lumberjack.v2
+
+3. Log Middleware 설정
+> ./cmd/server/middleware 에서 관리
+> main.go:115 Init
+> main.go:125 JSONLogger

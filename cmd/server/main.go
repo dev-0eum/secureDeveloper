@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"gosecureskeleton/cmd/server/middleware"
 	"net/http"
 	"os"
 	"strings"
@@ -111,6 +112,7 @@ type SessionStore struct {
 }
 
 func main() {
+	middleware.InitLogger()
 	store, err := openStore("./app.db", "./schema.sql", "./seed.sql")
 	if err != nil {
 		panic(err)
@@ -120,6 +122,7 @@ func main() {
 	sessions := newSessionStore()
 
 	router := gin.Default()
+	router.Use(middleware.JSONLogger())
 	registerStaticRoutes(router)
 
 	auth := router.Group("/api/auth")
@@ -456,7 +459,7 @@ func main() {
 		})
 	}
 
-	if err := router.Run(":8080"); err != nil {
+	if err := router.Run(":8081"); err != nil {
 		panic(err)
 	}
 }
