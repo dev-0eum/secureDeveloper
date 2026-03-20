@@ -1,51 +1,51 @@
-window.boardSkeleton = {
-  sessionKey: "boardSkeleton.session",
-  selectedPostKey: "boardSkeleton.selectedPostId",
+window.boardSkeleton = (function () {
+  const SESSION_KEY = "boardSkeleton.session";
+  const SELECTED_POST_KEY = "boardSkeleton.selectedPostId";
 
-  getSession() {
-    const raw = window.localStorage.getItem(this.sessionKey);
+  function getSession() {
+    const raw = window.localStorage.getItem(SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
-  },
+  }
 
-  setSession(session) {
-    window.localStorage.setItem(this.sessionKey, JSON.stringify(session));
-  },
+  function setSession(session) {
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  }
 
-  updateStoredUser(user) {
-    const session = this.getSession();
+  function updateStoredUser(user) {
+    const session = getSession();
     if (!session) return;
     session.user = user;
-    this.setSession(session);
-  },
+    setSession(session);
+  }
 
-  clearSession() {
-    window.localStorage.removeItem(this.sessionKey);
-    this.clearSelectedPostId();
-  },
+  function clearSession() {
+    window.localStorage.removeItem(SESSION_KEY);
+    clearSelectedPostId();
+  }
 
-  getSelectedPostId() {
-    return window.localStorage.getItem(this.selectedPostKey);
-  },
+  function getSelectedPostId() {
+    return window.localStorage.getItem(SELECTED_POST_KEY);
+  }
 
-  setSelectedPostId(postId) {
-    window.localStorage.setItem(this.selectedPostKey, String(postId));
-  },
+  function setSelectedPostId(postId) {
+    window.localStorage.setItem(SELECTED_POST_KEY, String(postId));
+  }
 
-  clearSelectedPostId() {
-    window.localStorage.removeItem(this.selectedPostKey);
-  },
+  function clearSelectedPostId() {
+    window.localStorage.removeItem(SELECTED_POST_KEY);
+  }
 
-  routeTo(hash) {
+  function routeTo(hash) {
     window.location.hash = hash;
-  },
+  }
 
-  async request(path, options = {}) {
+  async function request(path, options = {}) {
     const headers = { ...(options.headers || {}) };
     if (options.body) {
       headers["Content-Type"] = "application/json";
     }
 
-    const session = this.getSession();
+    const session = getSession();
     if (session?.token) {
       headers.Authorization = session.token;
     }
@@ -64,19 +64,19 @@ window.boardSkeleton = {
     }
 
     return { status: response.status, payload };
-  },
+  }
 
-  renderConsole(data) {
+  function renderConsole(data) {
     const output = document.querySelector("#console-output");
     if (!output) return;
     output.textContent = JSON.stringify(data, null, 2);
-  },
+  }
 
-  updateSessionStatus() {
+  function updateSessionStatus() {
     const box = document.querySelector("#session-status");
     if (!box) return;
 
-    const session = this.getSession();
+    const session = getSession();
     if (!session?.user) {
       box.textContent = "아직 Authorization 토큰이 없습니다.";
       return;
@@ -86,8 +86,22 @@ window.boardSkeleton = {
     const balance = Number(user.balance || 0).toLocaleString("ko-KR");
     const scope = user.is_admin ? "관리자" : "일반 사용자";
     box.textContent = `${user.name || user.username} 로그인됨, 권한 ${scope}, Authorization 헤더 준비됨, 잔액 ${balance}`;
-  },
-};
+  }
+
+  return {
+    getSession,
+    setSession,
+    updateStoredUser,
+    clearSession,
+    getSelectedPostId,
+    setSelectedPostId,
+    clearSelectedPostId,
+    routeTo,
+    request,
+    renderConsole,
+    updateSessionStatus,
+  };
+})();
 
 document.addEventListener("DOMContentLoaded", () => {
   window.boardSkeleton.updateSessionStatus();

@@ -550,7 +550,18 @@ func (s *SessionStore) delete(token string) {
 	delete(s.tokens, token)
 }
 
+// fe 페이지 캐싱으로 테스트에 혼동이 있어, 별도 처리없이 main에 두시면 될 것 같습니다
+// registerStaticRoutes 는 정적 파일(HTML, JS, CSS)을 제공하는 라우트를 등록한다.
 func registerStaticRoutes(router *gin.Engine) {
+	// 브라우저 캐시 비활성화 — 정적 파일과 루트 경로에만 적용
+	router.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/static/") || c.Request.URL.Path == "/" {
+			c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+			c.Header("Pragma", "no-cache")
+			c.Header("Expires", "0")
+		}
+		c.Next()
+	})
 	router.Static("/static", "./static")
 	router.GET("/", func(c *gin.Context) {
 		c.File("./static/index.html")
