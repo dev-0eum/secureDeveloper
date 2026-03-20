@@ -88,23 +88,46 @@ go run ./cmd/server
 처음 상태로 다시 시작하고 싶으면 `app.db`를 지운 뒤 다시 실행하면 됩니다.
 
 ### 작업한 내용의 특징에 대해서 작성해주세요
-ex)
-> main.go:30
-> xxx 한 것을 막기위해 xxx 를 적용해 방어
-
-> xxx 한 것을 고려해 구성함
-
-
 1. 윈도우 방화벽 이슈로 인한 실행 포트 변경
 > 기존 8080 세팅에서 8081로 변경
 
-2. 라이브러리 설치 및 활용
-> go get -u github.com/gin-gonic/gin
-> go get modernc.org/sqlite
-> go get github.com/sirupsen/logrus
-> go get gopkg.in/natefinch/lumberjack.v2
+2. 의존성 라이브러리 설치 및 활용
+./requirements에 작성
 
-3. Log Middleware 설정
+3. Signup Handler
+> main.go:138
+> Prepared Statement Query
+
+4. Log Middleware 설정
 > ./cmd/server/middleware 에서 관리
-> main.go:115 Init
-> main.go:125 JSONLogger
+> main.go:116 Init (Log Rotation)
+> main.go:126 JSONLogger
+
+5. /posts GET, POST 구현
+> main.go:378
+> main.go:438
+
+6. /posts/:id GET PUT DELETE 구현
+> main.go:472
+> main.go:528
+> main.go:565 // 여기서는 post 작성자인지 확인해주는 작업이 있어야했음.
+
+7. /withdraw 구현
+> main.go:226
+
+8. transaction을 이용한 예금 구현
+> main.go:281
+
+> deposit을 추가하는 것만 국한해서 볼 때는 굳이 transaction을 할 필요없다. 실패하면 err를 반환하면 되기 때문이다.
+> 사실상 transfer 단계에서 A의 balance를 차감하고 B의 balance를 증가시키는 두 개의 행위가 하나의 묶음이 되어 처리하도록 하는 기술이 transaction이지만, 시간적 한계로 인해 이 단계에서 구현하였다.
+
+9. 비슷한 query가 많았어서 DB package를 구성하고자 했다
+> ./ext/DB/sqlite 아래에 Select, Insert, Update, Delete별로 func을 구현하여 main에서는 CRUD만 구현하고 QUERY는 호출하기만 하도록 구현하고자 했다.
+
+10. 기능 별 package
+> ./svc (service) 아래에 해당 페이지의 기능(로그인, 회원가입, 게시글, 뱅킹 등)별로 분할하여 개발하고자 했다.
+
+11. validate package
+> 각 RESTful API를 보면 json 타입 검증(ShouldBindJSON), 토큰 검증, 세션 생성 함수를 중복적으로 사용한다.
+> 이를 decoration과 같이 만들어놓으면 각 api에서 처음에 호출만 하면 되도록 설계하고자 했다.
+ex> ./validate/bindjson/bind.go

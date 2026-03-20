@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"gosecureskeleton/cmd/server/middleware"
 	"net/http"
 	"os"
@@ -134,6 +135,12 @@ func main() {
 				return
 			}
 
+			query := "INSERT INTO users (username, name, email, phone, password, balance, is_admin) VALUES (?, ?, ?, ?, ?, 0, 0);"
+			_, err := store.db.Exec(query, request.Username, request.Name, request.Email, request.Phone, request.Password)
+			if err != nil {
+				fmt.Println("DB 삽입 실패:", err)
+			}
+
 			c.JSON(http.StatusAccepted, gin.H{
 				"message": "dummy register handler",
 				"todo":    "replace with actual signup validation and insert query",
@@ -142,6 +149,7 @@ func main() {
 					"name":     request.Name,
 					"email":    request.Email,
 					"phone":    request.Phone,
+					"pwd":      request.Password,
 				},
 			})
 		})
@@ -215,6 +223,18 @@ func main() {
 				return
 			}
 
+			fmt.Println("check")
+			fmt.Println(request.Password)
+			fmt.Println(user.Password)
+			if request.Password == user.Password {
+				fmt.Println("삭제 쿼리 진입")
+				query := `DELETE FROM users WHERE id = ?;`
+				_, err := store.db.Exec(query, user.ID)
+				if err != nil {
+					fmt.Println("DB 삭제 실패:", err)
+				}
+			}
+
 			c.JSON(http.StatusAccepted, gin.H{
 				"message": "dummy withdraw handler",
 				"todo":    "replace with password check and account delete logic",
@@ -257,6 +277,30 @@ func main() {
 				c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid authorization token"})
 				return
 			}
+
+			tx, err := store.db.Begin()
+			if err != nil {
+				fmt.Println(err)
+			}
+			defer tx.Rollback()
+
+			fmt.Println(user.Balance)
+			fmt.Println(request.Amount)
+			// 업데이트 될 금액
+			var b int64
+			b = user.Balance + request.Amount
+			fmt.Println(b)
+
+			query := `UPDATE users
+			SET balance = ?
+			WHERE id = ?;`
+
+			_, err = tx.Exec(query, b, user.ID)
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println("OK!!")
+			err = tx.Commit()
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "dummy deposit handler",
@@ -325,25 +369,51 @@ func main() {
 				c.JSON(http.StatusUnauthorized, gin.H{"message": "missing authorization token"})
 				return
 			}
-			if _, ok := sessions.lookup(token); !ok {
+			user, ok := sessions.lookup(token)
+			if !ok {
 				c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid authorization token"})
 				return
 			}
 
+			// 조회
+			query := `
+			SELECT id, title, content, created_at, updated_at
+			FROM posts
+			WHERE owner_id = ?;
+			`
+
+			rows, _ := store.db.Query(query, user.ID)
+			defer rows.Close()
+
+			var postArr []PostView
+			var tmp PostView
+			var id int
+			var title string
+			var content string
+			var created_at string
+			var updated_at string
+			for rows.Next() {
+				err := rows.Scan(&id, &title, &content, &created_at, &updated_at)
+				if err != nil {
+					fmt.Println("DB 조회 실패:", err)
+				}
+				fmt.Println(id, title, content, created_at, updated_at)
+
+				tmp.ID = uint(id)
+				tmp.Title = title
+				tmp.Content = content
+				tmp.OwnerID = uint(user.ID)
+				tmp.Author = user.Username
+				tmp.AuthorEmail = user.Email
+				tmp.CreatedAt = created_at
+				tmp.UpdatedAt = updated_at
+				postArr = append(postArr, tmp)
+			}
+
 			c.JSON(http.StatusOK, PostListResponse{
-				Posts: []PostView{
-					{
-						ID:          1,
-						Title:       "Dummy Post",
-						Content:     "This is a fixed dummy response. Replace this later with real board logic.",
-						OwnerID:     1,
-						Author:      "Alice Admin",
-						AuthorEmail: "alice.admin@example.com",
-						CreatedAt:   "2026-03-19T09:00:00Z",
-						UpdatedAt:   "2026-03-19T09:00:00Z",
-					},
-				},
+				Posts: postArr,
 			})
+
 		})
 
 		protected.POST("/posts", func(c *gin.Context) {
@@ -365,6 +435,12 @@ func main() {
 			}
 
 			now := time.Now().Format(time.RFC3339)
+			query := "INSERT INTO posts (title, content, owner_id) VALUES (?, ?, ?);"
+			_, err := store.db.Exec(query, request.Title, request.Content, user.ID)
+			if err != nil {
+				fmt.Println("DB 삽입 실패:", err)
+			}
+
 			c.JSON(http.StatusCreated, gin.H{
 				"message": "dummy create post handler",
 				"todo":    "replace with insert query",
@@ -387,22 +463,47 @@ func main() {
 				c.JSON(http.StatusUnauthorized, gin.H{"message": "missing authorization token"})
 				return
 			}
-			if _, ok := sessions.lookup(token); !ok {
+			user, ok := sessions.lookup(token)
+			if !ok {
 				c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid authorization token"})
 				return
 			}
 
+			// 조회
+			query := `
+			SELECT id, title, content, created_at, updated_at
+			FROM posts
+			WHERE id = ?;
+			`
+			var tmp PostView
+			var id int
+			var title string
+			var content string
+			var created_at string
+			var updated_at string
+
+			row, _ := store.db.Query(query, c.Param("id"))
+			defer row.Close()
+
+			for row.Next() {
+				err := row.Scan(&id, &title, &content, &created_at, &updated_at)
+				if err != nil {
+					fmt.Println("DB 조회 실패:", err)
+				}
+				fmt.Println(id, title, content, created_at, updated_at)
+
+				tmp.ID = uint(id)
+				tmp.Title = title
+				tmp.Content = content
+				tmp.OwnerID = uint(user.ID)
+				tmp.Author = user.Username
+				tmp.AuthorEmail = user.Email
+				tmp.CreatedAt = created_at
+				tmp.UpdatedAt = updated_at
+			}
+
 			c.JSON(http.StatusOK, PostResponse{
-				Post: PostView{
-					ID:          1,
-					Title:       "Dummy Post",
-					Content:     "This is a fixed dummy response. Replace this later with real board logic.",
-					OwnerID:     1,
-					Author:      "Alice Admin",
-					AuthorEmail: "alice.admin@example.com",
-					CreatedAt:   "2026-03-19T09:00:00Z",
-					UpdatedAt:   "2026-03-19T09:00:00Z",
-				},
+				Post: tmp,
 			})
 		})
 
@@ -424,7 +525,16 @@ func main() {
 				return
 			}
 
+			query := `UPDATE posts
+				SET title = ?, content = ?, updated_at = ?
+				WHERE id = ?;`
+
 			now := time.Now().Format(time.RFC3339)
+			_, err := store.db.Exec(query, request.Title, request.Content, now, c.Param("id"))
+			if err != nil {
+				fmt.Println("DB 갱신 실패:", err)
+			}
+
 			c.JSON(http.StatusOK, gin.H{
 				"message": "dummy update post handler",
 				"todo":    "replace with ownership check and update query",
@@ -450,6 +560,17 @@ func main() {
 			if _, ok := sessions.lookup(token); !ok {
 				c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid authorization token"})
 				return
+			}
+
+			// 사용자 확인
+
+			// DB 삭제
+			query := `DELETE FROM posts
+			WHERE id = ?;`
+
+			_, err := store.db.Exec(query, c.Param("id"))
+			if err != nil {
+				fmt.Println("DB 삭제 실패:", err)
 			}
 
 			c.JSON(http.StatusOK, gin.H{
